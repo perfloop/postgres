@@ -6716,7 +6716,7 @@ CreateCheckPoint(int flags)
 	SyncPreCheckpoint();
 
 	/*
-	 * NEON: perform checkpiont action requiring write to the WAL before we determine the REDO pointer.
+	 * NEON: perform checkpoint action requiring write to the WAL before we determine the REDO pointer.
 	 */
 	PreCheckPointGuts(flags);
 
@@ -7235,7 +7235,7 @@ CreateOverwriteContrecordRecord(XLogRecPtr aborted_lsn, XLogRecPtr pagePtr,
 }
 
 static void
-CheckPointReplicationState(void)
+CheckPointReplicationState()
 {
 	CheckPointRelationMap();
 	CheckPointReplicationSlots();
@@ -7247,13 +7247,21 @@ CheckPointReplicationState(void)
 /*
  * NEON:  we use logical records to persist information of about slots, origins, relation map...
  * If it is done inside shutdown checkpoint, then Postgres panics: "concurrent write-ahead log activity while database system is shutting down"
- * So it before checkpoint REDO position is determined.
+ * So do it before checkpoint REDO position is determined.
  */
 static void
 PreCheckPointGuts(int flags)
 {
 	if (flags & CHECKPOINT_IS_SHUTDOWN)
+	{
 		CheckPointReplicationState();
+		/*
+		 * pgstat_write_statsfile will be called later by before_shmem_exit() hook, but by then it's too late
+		 * to write WAL records. In Neon, pgstat_write_statsfile() writes the pgstats file to the WAL, so we have
+		 * to call it earlier. (The call that happens later is useless, but it doesn't do any harm either)  
+		 */
+		pgstat_write_statsfile();
+	}
 }
 
 /*
