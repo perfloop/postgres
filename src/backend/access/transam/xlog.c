@@ -7401,7 +7401,7 @@ CreateOverwriteContrecordRecord(XLogRecPtr aborted_lsn, XLogRecPtr pagePtr,
 }
 
 static void
-CheckPointReplicationState()
+CheckPointReplicationState(void)
 {
 	CheckPointRelationMap();
 	CheckPointReplicationSlots();
