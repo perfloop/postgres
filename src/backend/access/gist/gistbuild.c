@@ -660,6 +660,8 @@ gist_indexsortbuild_flush_ready_pages(GISTBuildState *state)
 	if (state->ready_num_pages == 0)
 		return;
 
+	smgr_start_unlogged_build(state->indexrel->rd_smgr);
+
 	for (int i = 0; i < state->ready_num_pages; i++)
 	{
 		Page		page = state->ready_pages[i];
@@ -677,9 +679,13 @@ gist_indexsortbuild_flush_ready_pages(GISTBuildState *state)
 		state->pages_written++;
 	}
 
+	smgr_finish_unlogged_build_phase_1(state->indexrel->rd_smgr);
+
 	if (RelationNeedsWAL(state->indexrel))
 		log_newpages(&state->indexrel->rd_node, MAIN_FORKNUM, state->ready_num_pages,
 					 state->ready_blknos, state->ready_pages, true);
+
+	smgr_end_unlogged_build(state->indexrel->rd_smgr);
 
 	for (int i = 0; i < state->ready_num_pages; i++)
 		pfree(state->ready_pages[i]);
