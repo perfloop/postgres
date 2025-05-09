@@ -967,9 +967,9 @@ lazy_scan_heap(LVRelState *vacrel)
 			if (next_prefetch_block + prefetch_budget > blkno + vacrel->io_concurrency)
 				prefetch_budget = blkno + vacrel->io_concurrency - next_prefetch_block;
 
-			/* And only up to the next unskippable block */
-			if (next_prefetch_block + prefetch_budget > next_unskippable_block)
-				prefetch_budget = next_unskippable_block - next_prefetch_block;
+			/* Do not perform prefetch if we are skipping current range */
+			if (skipping_current_range)
+				prefetch_budget = 0;
 
 			for (; prefetch_budget-- > 0; next_prefetch_block++)
 				PrefetchBuffer(vacrel->rel, MAIN_FORKNUM, next_prefetch_block);
