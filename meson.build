@@ -8,7 +8,7 @@
 
 project('postgresql',
   ['c'],
-  version: '16.8',
+  version: '16.9',
   license: 'PostgreSQL',
 
   # We want < 0.56 for python 3.5 compatibility on old platforms. EPEL for
@@ -3262,6 +3262,8 @@ test_env = environment()
 test_initdb_template = meson.build_root() / 'tmp_install' / 'initdb-template'
 test_env.set('PG_REGRESS', pg_regress.full_path())
 test_env.set('REGRESS_SHLIB', regress_module.full_path())
+# for Cluster.pm's portlock logic
+test_env.set('top_builddir', meson.build_root())
 
 # Test suites that are not safe by default but can be run if selected
 # by the user via the whitespace-separated list in variable PG_TEST_EXTRA.
