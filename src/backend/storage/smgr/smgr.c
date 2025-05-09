@@ -204,12 +204,12 @@ smgropen(RelFileLocator rlocator, ProcNumber backend, char relpersistence)
 
 		reln->smgr = smgr(backend, rlocator);
 
-		/* implementation-specific initialization */
-		(*reln->smgr).smgr_open(reln);
-
 		/* it is not pinned yet */
 		reln->pincount = 0;
 		dlist_push_tail(&unpinned_relns, &reln->node);
+
+		/* implementation-specific initialization */
+		(*reln->smgr).smgr_open(reln);
 	}
 	else
 	{
