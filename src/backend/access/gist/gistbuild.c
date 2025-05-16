@@ -298,7 +298,7 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 		Buffer		buffer;
 		Page		page;
 
-		smgr_start_unlogged_build(index->rd_smgr);
+		smgr_start_unlogged_build(RelationGetSmgr(index));
 
 		/* initialize the root page */
 		buffer = gistNewBuffer(index, heap);
@@ -332,7 +332,7 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 			gistFreeBuildBuffers(buildstate.gfbb);
 		}
 
-		smgr_finish_unlogged_build_phase_1(index->rd_smgr);
+		smgr_finish_unlogged_build_phase_1(RelationGetSmgr(index));
 
 		/*
 		 * We didn't write WAL records as we built the index, so if
@@ -345,7 +345,7 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 							  true);
 		}
 
-		smgr_end_unlogged_build(index->rd_smgr);
+		smgr_end_unlogged_build(RelationGetSmgr(index));
 	}
 
 	/* okay, all heap tuples are indexed */
@@ -465,18 +465,18 @@ gist_indexsortbuild(GISTBuildState *state)
 	gist_indexsortbuild_flush_ready_pages(state);
 
 	/* Write out the root */
-	smgr_start_unlogged_build(state->indexrel->rd_smgr);
+	smgr_start_unlogged_build(RelationGetSmgr(state->indexrel));
 	PageSetLSN(levelstate->pages[0], GistBuildLSN);
 	PageSetChecksumInplace(levelstate->pages[0], GIST_ROOT_BLKNO);
 	smgrwrite(RelationGetSmgr(state->indexrel), MAIN_FORKNUM, GIST_ROOT_BLKNO,
 			  levelstate->pages[0], true);
-	smgr_finish_unlogged_build_phase_1(state->indexrel->rd_smgr);
+	smgr_finish_unlogged_build_phase_1(RelationGetSmgr(state->indexrel));
 	if (RelationNeedsWAL(state->indexrel))
 	{
 		log_newpage(&state->indexrel->rd_locator, MAIN_FORKNUM, GIST_ROOT_BLKNO,
 					levelstate->pages[0], true);
 	}
-	smgr_end_unlogged_build(state->indexrel->rd_smgr);
+	smgr_end_unlogged_build(RelationGetSmgr(state->indexrel));
 
 	pfree(levelstate->pages[0]);
 	pfree(levelstate);
@@ -659,7 +659,7 @@ gist_indexsortbuild_flush_ready_pages(GISTBuildState *state)
 	if (state->ready_num_pages == 0)
 		return;
 
-	smgr_start_unlogged_build(state->indexrel->rd_smgr);
+	smgr_start_unlogged_build(RelationGetSmgr(state->indexrel));
 
 	for (int i = 0; i < state->ready_num_pages; i++)
 	{
@@ -678,13 +678,13 @@ gist_indexsortbuild_flush_ready_pages(GISTBuildState *state)
 		state->pages_written++;
 	}
 
-	smgr_finish_unlogged_build_phase_1(state->indexrel->rd_smgr);
+	smgr_finish_unlogged_build_phase_1(RelationGetSmgr(state->indexrel));
 
 	if (RelationNeedsWAL(state->indexrel))
 		log_newpages(&state->indexrel->rd_locator, MAIN_FORKNUM, state->ready_num_pages,
 					 state->ready_blknos, state->ready_pages, true);
 
-	smgr_end_unlogged_build(state->indexrel->rd_smgr);
+	smgr_end_unlogged_build(RelationGetSmgr(state->indexrel));
 
 	for (int i = 0; i < state->ready_num_pages; i++)
 		pfree(state->ready_pages[i]);
