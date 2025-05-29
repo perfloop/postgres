@@ -7220,7 +7220,7 @@ CheckPointReplicationState(void)
 static void
 PreCheckPointGuts(int flags)
 {
-	if (flags & CHECKPOINT_IS_SHUTDOWN)
+	if (flags & (CHECKPOINT_IS_SHUTDOWN|CHECKPOINT_END_OF_RECOVERY))
 	{
 		CheckPointReplicationState();
 		CheckPointBuffers(flags);
@@ -7243,7 +7243,7 @@ PreCheckPointGuts(int flags)
 static void
 CheckPointGuts(XLogRecPtr checkPointRedo, int flags)
 {
-	if (!(flags & CHECKPOINT_IS_SHUTDOWN))
+	if (!(flags & (CHECKPOINT_IS_SHUTDOWN|CHECKPOINT_END_OF_RECOVERY)))
 		CheckPointReplicationState();
 
 	/* Write out all dirty data in SLRUs and the main buffer pool */
