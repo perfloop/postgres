@@ -162,7 +162,7 @@ int			bgwriter_flush_after = DEFAULT_BGWRITER_FLUSH_AFTER;
 int			backend_flush_after = DEFAULT_BACKEND_FLUSH_AFTER;
 
 /* Evict unpinned pages (for better test coverage) */
-bool		zenith_test_evict = false;
+bool		neon_test_evict = false;
 
 
 /* local state for LockBufferForCleanup */
@@ -2470,7 +2470,7 @@ UnpinBuffer(BufferDesc *buf)
 		}
 		ForgetPrivateRefCountEntry(ref);
 
-		if (zenith_test_evict && !InRecovery)
+		if (neon_test_evict && !InRecovery)
 		{
 			buf_state = LockBufHdr(buf);
 			if ((buf_state & BM_VALID) && BUF_STATE_GET_REFCOUNT(buf_state) == 0)
