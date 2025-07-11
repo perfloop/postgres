@@ -76,7 +76,7 @@ extern PGDLLIMPORT int checkpoint_flush_after;
 extern PGDLLIMPORT int backend_flush_after;
 extern PGDLLIMPORT int bgwriter_flush_after;
 
-extern bool	zenith_test_evict;
+extern bool	neon_test_evict;
 
 /* in buf_init.c */
 extern PGDLLIMPORT char *BufferBlocks;

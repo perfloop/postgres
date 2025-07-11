@@ -673,7 +673,7 @@ fsm_extend(Relation rel, BlockNumber fsm_nblocks)
 	while (fsm_nblocks_now < fsm_nblocks)
 	{
 		/*
-		 * ZENITH: Initialize FSM pages through buffer cache to prevent loading
+		 * NEON: Initialize FSM pages through buffer cache to prevent loading
 		 * them from pageserver.
 		 */
 		Buffer	buffer = ReadBufferExtended(rel, FSM_FORKNUM, P_NEW, RBM_ZERO_AND_LOCK, NULL);

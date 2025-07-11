@@ -658,7 +658,7 @@ vm_extend(Relation rel, BlockNumber vm_nblocks)
 	while (vm_nblocks_now < vm_nblocks)
 	{
 		/*
-		 * ZENITH: Initialize VM pages through buffer cache to prevent loading
+		 * NEON: Initialize VM pages through buffer cache to prevent loading
 		 * them from pageserver.
 		 */
 		Buffer	buffer = ReadBufferExtended(rel, VISIBILITYMAP_FORKNUM, P_NEW,
