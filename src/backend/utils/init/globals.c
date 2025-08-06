@@ -116,7 +116,6 @@ pid_t		PostmasterPid = 0;
 bool		IsPostmasterEnvironment = false;
 bool		IsUnderPostmaster = false;
 bool		IsBinaryUpgrade = false;
-bool		neon_use_communicator_worker = false;
 
 bool		ExitOnAnyError = false;
 
