@@ -48,6 +48,7 @@ static volatile sig_atomic_t time_to_stop = false;
 static const RelFileLocator emptyRelFileLocator = {0, 0, 0};
 
 static FILE* save_records_file;
+static FILE* load_records_file;
 
 typedef struct XLogDumpPrivate
 {
@@ -87,6 +88,7 @@ typedef struct XLogDumpConfig
 	/* save options */
 	char	   *save_fullpage_path;
 	char	   *save_records_file_path;
+	char	   *load_records_file_path;
 } XLogDumpConfig;
 
 
@@ -871,11 +873,28 @@ usage(void)
 			 "                         (optionally, show per-record statistics)\n"));
 	printf(_("  --save-fullpage=DIR    save full page images to DIR\n"));
 	printf(_("  --save-records=FILE    save selected WAL records to the file\n"));
+	printf(_("  --load-records=FILE    load saved WAL records from the file\n"));
 	printf(_("  -?, --help             show this help, then exit\n"));
 	printf(_("\nReport bugs to <%s>.\n"), PACKAGE_BUGREPORT);
 	printf(_("%s home page: <%s>\n"), PACKAGE_NAME, PACKAGE_URL);
 }
 
+
+static int32
+read_pq_int32(FILE* f)
+{
+	int32 val;
+	fread(&val, sizeof(val), 1, f);
+	return pg_hton32(val);
+}
+
+static int64
+read_pq_int64(FILE* f)
+{
+	int64 val;
+	fread(&val, sizeof(val), 1, f);
+	return pg_hton64(val);
+}
 
 static void
 write_pq_int32(FILE* f, int32 val)
@@ -993,6 +1012,7 @@ main(int argc, char **argv)
 	config.filter_by_fpw = false;
 	config.save_fullpage_path = NULL;
 	config.save_records_file_path = NULL;
+	config.load_records_file_path = NULL;
 	config.stats = false;
 	config.stats_per_record = false;
 	config.ignore_format_errors = false;
@@ -1214,6 +1234,9 @@ main(int argc, char **argv)
 			case 2:
 				config.save_records_file_path = pg_strdup(optarg);
 				break;
+			case 3:
+				config.load_records_file_path = pg_strdup(optarg);
+				break;
 			default:
 				goto bad_argument;
 		}
@@ -1316,6 +1339,9 @@ main(int argc, char **argv)
 
 	if (config.save_records_file_path)
 		save_records_file = fopen(config.save_records_file_path, "wb");
+
+	if (config.load_records_file_path)
+		load_records_file = fopen(config.load_records_file_path, "rb");
 
 	/* parse files as start/end boundaries, extract path if not specified */
 	if (optind < argc)
@@ -1424,6 +1450,77 @@ main(int argc, char **argv)
 						   &private);
 	if (!xlogreader_state)
 		pg_fatal("out of memory while allocating a WAL reading processor");
+
+	if (load_records_file)
+	{
+		int action;
+		while ((action = fgetc(load_records_file)) != EOF)
+		{
+			int len = read_pq_int32(load_records_file);
+			switch (action)
+			{
+				case 'B': /* base block */
+				{
+					int forkNum = fgetc(load_records_file);
+					int spcNode = read_pq_int32(load_records_file);
+					int dbNode = read_pq_int32(load_records_file);
+					int relNode = read_pq_int32(load_records_file);
+					int blkNum = read_pq_int32(load_records_file);
+					printf("Start redo of %u/%u/%u.%u block %u\n", spcNode, dbNode, relNode, forkNum, blkNum);
+					continue;
+				}
+				case 'A': /* apply record */
+				{
+					XLogRecPtr lsn = read_pq_int64(load_records_file);
+					char* buf = (char*)malloc(len - 4);
+					XLogRecord* rec;
+					const RmgrDescData *desc;
+					if (fread(buf, len-4, 1, load_records_file) != 1)
+						pg_fatal("could not load applied record: %m");
+					rec = (XLogRecord*)buf;
+					desc = GetRmgrDesc(rec->xl_rmid);
+					printf("rmgr: %-11s len: %6u, tx: %10u, lsn: %X/%08X, prev %X/%08X\n",
+						   desc->rm_name,
+						   rec->xl_tot_len,
+						   rec->xl_xid,
+						   LSN_FORMAT_ARGS(lsn),
+						   LSN_FORMAT_ARGS(rec->xl_prev));
+					continue;
+				}
+				case 'P': /* push page */
+				{
+					int forkNum = fgetc(load_records_file);
+					int spcNode = read_pq_int32(load_records_file);
+					int dbNode = read_pq_int32(load_records_file);
+					int relNode = read_pq_int32(load_records_file);
+					int blkNum = read_pq_int32(load_records_file);
+					printf("Base image %u/%u/%u.%u block %u\n", spcNode, dbNode, relNode, forkNum, blkNum);
+					if (config.save_fullpage_path)
+					{
+						char	filename[MAXPGPATH];
+						char    page[BLCKSZ];
+						FILE*	file;
+						snprintf(filename, MAXPGPATH, "%s/base_image_%u.%u.%u.%u%s", config.save_fullpage_path,
+								 spcNode, dbNode, relNode, blkNum, forkNames[forkNum]);
+						file = fopen(filename, PG_BINARY_W);
+						if (!file)
+							pg_fatal("could not open file \"%s\": %m", filename);
+
+						if (fread(page, BLCKSZ, 1, load_records_file) != 1 ||
+							fwrite(page, BLCKSZ, 1, file) != 1)
+							pg_fatal("could not save image in file \"%s\": %m", filename);
+						fclose(file);
+					}
+					continue;
+				}
+				case 'G': /* get page */
+					break;
+				default:
+					pg_fatal("Unexpected action: %d", action);
+			}
+			break;
+		}
+	}
 
 	if (save_records_file)
  	{
