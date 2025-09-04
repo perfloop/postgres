@@ -1472,19 +1472,35 @@ main(int argc, char **argv)
 				case 'A': /* apply record */
 				{
 					XLogRecPtr lsn = read_pq_int64(load_records_file);
-					char* buf = (char*)malloc(len - 4);
-					XLogRecord* rec;
-					const RmgrDescData *desc;
-					if (fread(buf, len-4, 1, load_records_file) != 1)
+					XLogRecord* record = (XLogRecord*)malloc(len - 4);
+					char	   *errormsg;
+					DecodedXLogRecord* decoded;
+
+					if (fread(record, len-4, 1, load_records_file) != 1)
 						pg_fatal("could not load applied record: %m");
-					rec = (XLogRecord*)buf;
-					desc = GetRmgrDesc(rec->xl_rmid);
-					printf("rmgr: %-11s len: %6u, tx: %10u, lsn: %X/%08X, prev %X/%08X\n",
-						   desc->rm_name,
-						   rec->xl_tot_len,
-						   rec->xl_xid,
-						   LSN_FORMAT_ARGS(lsn),
-						   LSN_FORMAT_ARGS(rec->xl_prev));
+
+					XLogBeginRead(xlogreader_state, lsn);
+					decoded = malloc(DecodeXLogRecordRequiredSpace(record->xl_tot_len));
+					if (!DecodeXLogRecord(xlogreader_state, decoded, record, lsn, &errormsg))
+						pg_fatal("failed to decode WAL record: %s", errormsg);
+
+					/* Record the location of the next record. */
+					decoded->next_lsn = xlogreader_state->NextRecPtr;
+
+					/*
+					 * Update the pointers to the beginning and one-past-the-end of this
+					 * record, again for the benefit of historical code that expected the
+					 * decoder to track this rather than accessing these fields of the record
+					 * itself.
+					 */
+					xlogreader_state->record = decoded;
+					xlogreader_state->ReadRecPtr = decoded->lsn;
+					xlogreader_state->EndRecPtr = decoded->next_lsn;
+
+					XLogDumpDisplayRecord(&config, xlogreader_state);
+
+					free(record);
+					free(decoded);
 					continue;
 				}
 				case 'P': /* push page */
