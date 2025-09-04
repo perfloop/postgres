@@ -958,6 +958,7 @@ main(int argc, char **argv)
 		{"stats", optional_argument, NULL, 'z'},
 		{"save-fullpage", required_argument, NULL, 1},
 		{"save-records", required_argument, NULL, 2},
+		{"load-records", required_argument, NULL, 3},
 		{NULL, 0, NULL, 0}
 	};
 
