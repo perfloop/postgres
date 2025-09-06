@@ -1434,7 +1434,7 @@ main(int argc, char **argv)
 			waldir = identify_target_directory(waldir, NULL, config.ignore_format_errors);
 
 	/* we don't know what to print */
-	if (XLogRecPtrIsInvalid(private.startptr) && !single_file)
+	if (XLogRecPtrIsInvalid(private.startptr) && !single_file && !load_records_file)
 	{
 		pg_log_error("no start WAL location given");
 		goto bad_argument;
@@ -1473,11 +1473,11 @@ main(int argc, char **argv)
 				case 'A': /* apply record */
 				{
 					XLogRecPtr lsn = read_pq_int64(load_records_file);
-					XLogRecord* record = (XLogRecord*)malloc(len - 4);
+					XLogRecord* record = (XLogRecord*)malloc(len - 12);
 					char	   *errormsg;
 					DecodedXLogRecord* decoded;
 
-					if (fread(record, len-4, 1, load_records_file) != 1)
+					if (fread(record, len-12, 1, load_records_file) != 1)
 						pg_fatal("could not load applied record: %m");
 
 					XLogBeginRead(xlogreader_state, lsn);
@@ -1537,6 +1537,7 @@ main(int argc, char **argv)
 			}
 			break;
 		}
+		goto success;
 	}
 
 	if (save_records_file)
@@ -1706,7 +1707,7 @@ main(int argc, char **argv)
 		pg_fatal("error in WAL record at %X/%X: %s",
 				 LSN_FORMAT_ARGS(xlogreader_state->ReadRecPtr),
 				 errormsg);
-
+success:
 	XLogReaderFree(xlogreader_state);
 
 	return EXIT_SUCCESS;
