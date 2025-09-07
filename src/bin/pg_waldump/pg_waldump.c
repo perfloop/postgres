@@ -1473,10 +1473,10 @@ main(int argc, char **argv)
 				case 'A': /* apply record */
 				{
 					XLogRecPtr lsn = read_pq_int64(load_records_file);
-					XLogRecord* record = (XLogRecord*)malloc(len - 12);
 					char	   *errormsg;
 					DecodedXLogRecord* decoded;
 
+					record = (XLogRecord*)malloc(len - 12);
 					if (fread(record, len-12, 1, load_records_file) != 1)
 						pg_fatal("could not load applied record: %m");
 
