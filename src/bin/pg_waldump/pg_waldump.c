@@ -1472,7 +1472,6 @@ main(int argc, char **argv)
 				case 'A': /* apply record */
 				{
 					XLogRecPtr lsn = read_pq_int64(load_records_file);
-					char	   *errormsg;
 					DecodedXLogRecord* decoded;
 
 					record = (XLogRecord*)malloc(len - 12);
