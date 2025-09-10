@@ -884,7 +884,8 @@ static int32
 read_pq_int32(FILE* f)
 {
 	int32 val;
-	fread(&val, sizeof(val), 1, f);
+	if (fread(&val, sizeof(val), 1, f) != 1)
+		pg_fatal("could not read from file: %m");
 	return pg_hton32(val);
 }
 
@@ -892,7 +893,8 @@ static int64
 read_pq_int64(FILE* f)
 {
 	int64 val;
-	fread(&val, sizeof(val), 1, f);
+	if (fread(&val, sizeof(val), 1, f) != 1)
+		pg_fatal("could not read from file: %m");
 	return pg_hton64(val);
 }
 
@@ -900,14 +902,16 @@ static void
 write_pq_int32(FILE* f, int32 val)
 {
 	val = pg_hton32(val);
-	fwrite(&val, sizeof(val), 1, f);
+	if (fwrite(&val, sizeof(val), 1, f) != 1)
+		pg_fatal("could not write to file: %m");
 }
 
 static void
 write_pq_int64(FILE* f, int64 val)
 {
 	val = pg_hton64(val);
-	fwrite(&val, sizeof(val), 1, f);
+	if (fwrite(&val, sizeof(val), 1, f) != 1)
+		pg_fatal("could not write to file: %m");
 }
 
 static void
