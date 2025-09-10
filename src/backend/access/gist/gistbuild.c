@@ -465,18 +465,15 @@ gist_indexsortbuild(GISTBuildState *state)
 	gist_indexsortbuild_flush_ready_pages(state);
 
 	/* Write out the root */
-	smgr_start_unlogged_build(RelationGetSmgr(state->indexrel));
 	PageSetLSN(levelstate->pages[0], GistBuildLSN);
-	PageSetChecksumInplace(levelstate->pages[0], GIST_ROOT_BLKNO);
-	smgrwrite(RelationGetSmgr(state->indexrel), MAIN_FORKNUM, GIST_ROOT_BLKNO,
-			  levelstate->pages[0], true);
-	smgr_finish_unlogged_build_phase_1(RelationGetSmgr(state->indexrel));
 	if (RelationNeedsWAL(state->indexrel))
 	{
 		log_newpage(&state->indexrel->rd_locator, MAIN_FORKNUM, GIST_ROOT_BLKNO,
 					levelstate->pages[0], true);
 	}
-	smgr_end_unlogged_build(RelationGetSmgr(state->indexrel));
+	PageSetChecksumInplace(levelstate->pages[0], GIST_ROOT_BLKNO);
+	smgrwrite(RelationGetSmgr(state->indexrel), MAIN_FORKNUM, GIST_ROOT_BLKNO,
+			  levelstate->pages[0], true);
 
 	pfree(levelstate->pages[0]);
 	pfree(levelstate);
@@ -659,7 +656,16 @@ gist_indexsortbuild_flush_ready_pages(GISTBuildState *state)
 	if (state->ready_num_pages == 0)
 		return;
 
-	smgr_start_unlogged_build(RelationGetSmgr(state->indexrel));
+	for (int i = 0; i < state->ready_num_pages; i++)
+	{
+		Page		page = state->ready_pages[i];
+
+		PageSetLSN(page, GistBuildLSN);
+	}
+
+	if (RelationNeedsWAL(state->indexrel))
+		log_newpages(&state->indexrel->rd_locator, MAIN_FORKNUM, state->ready_num_pages,
+					 state->ready_blknos, state->ready_pages, true);
 
 	for (int i = 0; i < state->ready_num_pages; i++)
 	{
@@ -670,21 +676,12 @@ gist_indexsortbuild_flush_ready_pages(GISTBuildState *state)
 		if (blkno != state->pages_written)
 			elog(ERROR, "unexpected block number to flush GiST sorting build");
 
-		PageSetLSN(page, GistBuildLSN);
 		PageSetChecksumInplace(page, blkno);
 		smgrextend(RelationGetSmgr(state->indexrel), MAIN_FORKNUM, blkno, page,
 				   true);
 
 		state->pages_written++;
 	}
-
-	smgr_finish_unlogged_build_phase_1(RelationGetSmgr(state->indexrel));
-
-	if (RelationNeedsWAL(state->indexrel))
-		log_newpages(&state->indexrel->rd_locator, MAIN_FORKNUM, state->ready_num_pages,
-					 state->ready_blknos, state->ready_pages, true);
-
-	smgr_end_unlogged_build(RelationGetSmgr(state->indexrel));
 
 	for (int i = 0; i < state->ready_num_pages; i++)
 		pfree(state->ready_pages[i]);
